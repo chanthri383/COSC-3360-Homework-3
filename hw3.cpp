@@ -4,8 +4,6 @@
 #include <queue> 
 #include <condition_variable>
 
-pthread_t tid[counter]; //not sure how to set up unknown size of n # of threads
-int counter;
 pthread_mutex_t lock;
 
 using namespace std;
@@ -38,9 +36,11 @@ int main()
 					accessT.push(accessTime);
 					
 					userNumber++; //since there are n users accessing shared resouce 
+							//also used to determine how many request threads
 				}
 	
 	//does creating each thread happen during input redirection?
+	pthread_t tid[userNumber]; //because we determine how many users based on input redirection
 	
 	return 0;
 }
