@@ -25,7 +25,6 @@ int main()
 	int userUsingResource = 0;
 	int currentResource = 0;
 	int timeActivity = 0;
-	int user
 	int error; //not sure if this is needed 
 	int i = 0; //for loop initializer
 	int totalRequest1 = 0;
