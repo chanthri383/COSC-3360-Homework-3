@@ -1,7 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <queue> 
+#include <vector> 
 #include <condition_variable>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -18,10 +18,10 @@ int main()
 	int accessTime = 0;
 	int timeOfActivity = 0;
 	int userNumber = 1;
-	queue<int> currentG;
-	queue<int> resourceNum;
-	queue<int> accessT;
-	queue<int> user;
+	vector<int> currentG;
+	vector<int> resourceNum;
+	vector<int> accessT;
+	vector<int> user;
 	int userUsingResource = 0;
 	int currentResource = 0;
 	int timeActivity = 0;
@@ -36,9 +36,9 @@ int main()
 				accessTime >> timeOfActivity)
 				{
 					
-					currentG.push(currentGroup);
-					resouceNum.push(resourceNumber);
-					accessT.push(accessTime);
+					currentG.push_back(currentGroup);
+					resouceNum.push_back(resourceNumber);
+					accessT.push_back(accessTime);
 					
 					userNumber++; 
 					if(currentGroup == 1)
@@ -48,8 +48,9 @@ int main()
 						totalRequest2++;
 				}
 	
-	//does creating each thread happen during input redirection?
-	pthread_t tid[userNumber]; //because we determine how many users based on input redirection
+	pthread_t tid[userNumber]; 
+	//this'll be where thread implementation will be done
+	
 	
 	cout << "Total Requests:" << endl;
 	cout << "Group 1: " << totalRequest1 << endl;
