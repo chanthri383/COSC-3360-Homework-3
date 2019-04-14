@@ -39,6 +39,10 @@ print summary after all requests have been processed
 			* the group they belong to
 			* a position that was locked by another user
 
+missing:
+	need counters for totals
+	need specifics on how processes are sharing memory
+
 */
 
 class Shared {
