@@ -40,8 +40,12 @@ int main()
 					resouceNum.push(resourceNumber);
 					accessT.push(accessTime);
 					
-					userNumber++; //since there are n users accessing shared resouce 
-							//also used to determine how many request threads
+					userNumber++; 
+					if(currentGroup == 1)
+						totalRequest1++;
+					
+					else if(currentGroup == 2)
+						totalRequest2++;
 				}
 	
 	//does creating each thread happen during input redirection?
