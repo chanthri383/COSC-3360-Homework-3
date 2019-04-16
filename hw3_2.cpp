@@ -8,6 +8,8 @@
 #include <unistd.h>
 
 pthread_mutex_t lock;
+pthread_mutex_t unlock;
+
 
 using namespace std;
 
@@ -95,7 +97,6 @@ class UserGroup {
 
 int main(int argc, char* argv[])
 {
-<<<<<<< alex
 	UserGroup g1('1'), g2('2');
 
 	// add requests
@@ -104,7 +105,6 @@ int main(int argc, char* argv[])
 
 	// print totals
 
-=======
 	int startingGroup = 0;
 	int currentGroup = 0;
 	int resourceNumber = 0;
@@ -124,9 +124,14 @@ int main(int argc, char* argv[])
 	int totalRequest2 = 0;
 	int waitAmount = 0;
 	
+	cin >> startingGroup;
 	while(cin >> currentGroup >> resourceNumber >>
 				accessTime >> timeOfActivity)
 				{
+					if(currentGroup != startingGroup)
+					{
+						waitAmount++;
+					}
 					
 					currentG.push_back(currentGroup);
 					resouceNum.push_back(resourceNumber);
@@ -150,7 +155,7 @@ int main(int argc, char* argv[])
 	cout << endl;
 	
 	cout << "Requests that waited: " << endl;
-	cout << "Due to its group: " << //variable that counts which group waited  or not the first line of text file << endl;
+	cout << "Due to its group: " << waitAmount << endl;
 	cout << "Due to a locked position: " << //variable calculate locked position << endl;
 		
 	return 0;
