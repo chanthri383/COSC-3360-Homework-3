@@ -95,14 +95,16 @@ class UserGroup {
 int main(int argc, char* argv[])
 {
 	UserGroup g1('1'), g2('2');
-	UserGroup* sg;
+	UserGroup* sg, eg;
 
 	int startingGroup;
 	cin >> startingGroup;
 	if (startingGroup == 1) {
 		sg = &g1;
+		eg = &g2;
 	} else {
 		sg = &g2;
+		eg = &g1;
 	}
 
 	// add requests
