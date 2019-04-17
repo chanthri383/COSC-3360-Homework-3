@@ -9,6 +9,7 @@
 
 pthread_mutex_t lock;
 pthread_mutex_t unlock;
+pthread_mutex_t condVar[10];
 
 
 using namespace std;
