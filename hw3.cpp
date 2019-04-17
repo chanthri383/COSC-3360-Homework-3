@@ -95,7 +95,7 @@ class UserGroup {
 int main(int argc, char* argv[])
 {
 	UserGroup g1('1'), g2('2');
-	UserGroup* sg, eg;
+	UserGroup *sg, *eg;
 
 	int startingGroup;
 	cin >> startingGroup;
