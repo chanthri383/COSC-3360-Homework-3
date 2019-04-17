@@ -110,7 +110,6 @@ int main(int argc, char* argv[])
 	int resourceNumber = 0;
 	int accessTime = 0;
 	int timeOfActivity = 0;
-	int userNumber = 1;
 	vector<int> currentG;
 	vector<int> resourceNum;
 	vector<int> accessT;
@@ -118,15 +117,14 @@ int main(int argc, char* argv[])
 	int userUsingResource = 0;
 	int currentResource = 0;
 	int timeActivity = 0;
-	int error; //not sure if this is needed 
-	int i = 0; //for loop initializer
+	int userNumber = 0;
+	int i = 0;
 	int totalRequest1 = 0;
 	int totalRequest2 = 0;
 	int waitAmount = 0;
 	
 	cin >> startingGroup;
-	while(cin >> currentGroup >> resourceNumber >>
-				accessTime >> timeOfActivity)
+	while(cin >> currentGroup >> resourceNumber >> accessTime >> timeOfActivity)
 				{
 					if(currentGroup != startingGroup)
 					{
@@ -146,7 +144,7 @@ int main(int argc, char* argv[])
 				}
 	
 	pthread_t tid[userNumber]; 
-	//this'll be where thread implementation will be done
+	
 	
 	
 	cout << "Total Requests:" << endl;
