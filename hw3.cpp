@@ -4,6 +4,11 @@
 using namespace std;
 
 /*
+specifications:
+
+get data ready:
+	* 10 different positions in the database ==> use a mutex for each
+
 read in all data at the beginning before doing any work
 	* input comes from input redirection
 	* file format:
@@ -21,6 +26,7 @@ read in all data at the beginning before doing any work
 
 processing requests:
     * process all requests from the group that starts before doing the next group
+		- only requests from the same group have the potential to lock resources from each other
     * each request is handled by a new thread
     * request processing is simulated with sleep()
     * print messages whenever a request:
@@ -29,6 +35,7 @@ processing requests:
         c) waits for a database position (if it was locked)
         d) uses a database position
         e) finishes execution
+	* preserve order when multiple requests are waiting for a single position
     * print whenever the first group finishes and the second group begins
 
 print summary after all requests have been processed
@@ -65,12 +72,12 @@ struct RequestInfo {
 
 class UserGroup {
   private:
-  	char groupLabel;
+  	int groupNumber;
 	queue<RequestInfo> requests;
 
   public:
-	UserGroup(char label) {
-		groupLabel = label;
+	UserGroup(char n) {
+		groupNumber = n;
 	}
 
 	void addRequest(int u, int p, int a, int d) {
@@ -88,6 +95,15 @@ class UserGroup {
 int main(int argc, char* argv[])
 {
 	UserGroup g1('1'), g2('2');
+	UserGroup* sg;
+
+	int startingGroup;
+	cin >> startingGroup;
+	if (startingGroup == 1) {
+		sg = &g1;
+	} else {
+		sg = &g2;
+	}
 
 	// add requests
 
