@@ -7,8 +7,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-pthread_mutex_t lock;
-pthread_mutex_t unlock;
 pthread_mutex_t condVar[10];
 
 
