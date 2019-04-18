@@ -130,6 +130,14 @@ class Shared
 		pthread_mutex_unlock(&(data->numUsersWaitedForLock_mutex));
 		return t;
 	}
+
+	void waitForGroupCond() {
+		// you need a condition variable added to the SharedData struct
+	}
+
+	void broadcastGroupCond() {
+
+	}
 };
 
 struct Requestdata
@@ -171,27 +179,32 @@ class UserGroup
 		requests.pop();
 		return r;
 	}
+
+	int getNumberOfRequests()
+	{
+		return requests.size();
+	}
 };
 
 int main(int argc, char *argv[])
 {
-	UserGroup g1('1'), g2('2');
-	UserGroup *sg, *eg;
-
+	// g[0] is group 1, g[1] is group 2
+	UserGroup g[2] { UserGroup('1'), UserGroup('2') };
 	int startingGroup;
+	int currentGroup, pos, a, d;
+	int userNumber = 1;
+	int numRequests[2] = {0, 0};
+
 	cin >> startingGroup;
-	if (startingGroup == 1)
+
+	while (cin >> currentGroup >> pos >> a >> d)
 	{
-		sg = &g1;
-		eg = &g2;
-	}
-	else
-	{
-		sg = &g2;
-		eg = &g1;
+		g[currentGroup - 1].addRequest(userNumber, pos, a, d);
+		userNumber++;
 	}
 
-	// add requests
+	numRequests[0] = g[0].getNumberOfRequests();
+	numRequests[1] = g[1].getNumberOfRequests();
 
 	// process requests
 
