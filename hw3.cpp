@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <stdexcept>
+#include <queue>
 
 
 using namespace std;
@@ -99,6 +100,14 @@ class Shared
 		shmdt(data);
 	}
 
+	// call this in main thread after everything that is shared is done being used
+	void destroy()
+	{
+		pthread_mutex_destroy(&(data->print_mutex));
+		pthread_mutex_destroy(&(data->numUsersWaitedForLock_mutex));
+		shmctl(shmid, IPC_RMID, NULL);
+	}
+
 	void print(string s)
 	{
 		pthread_mutex_lock(&(data->print_mutex));
@@ -123,14 +132,14 @@ class Shared
 	}
 };
 
-struct RequestInfo
+struct Requestdata
 {
 	int userNumber;
 	int position;
 	int arrival;
 	int duration;
 
-	RequestInfo(int u, int p, int a, int d)
+	Requestdata(int u, int p, int a, int d)
 	{
 		userNumber = u;
 		position = p;
@@ -143,7 +152,7 @@ class UserGroup
 {
   private:
 	int groupNumber;
-	queue<RequestInfo> requests;
+	queue<Requestdata> requests;
 
   public:
 	UserGroup(char n)
@@ -153,12 +162,12 @@ class UserGroup
 
 	void addRequest(int u, int p, int a, int d)
 	{
-		requests.push(RequestInfo(u, p, a, d));
+		requests.push(Requestdata(u, p, a, d));
 	}
 
-	RequestInfo dequeueRequest()
+	Requestdata dequeueRequest()
 	{
-		RequestInfo r = requests.front;
+		Requestdata r = requests.front;
 		requests.pop();
 		return r;
 	}
