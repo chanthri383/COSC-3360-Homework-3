@@ -39,6 +39,8 @@ read in all data at the beginning before doing any work
 		- order elements in each queue by request arrival time
 
 processing requests:
+	* wait for all request threads to be ready by calling waitForGroupCond()
+		- then the main thread can trigger broadcastGroupCond()
     * process all requests from the group that starts before doing the next group
 		- only requests from the same group have the potential to lock resources from each other
     * each request is handled by a new thread
@@ -75,6 +77,10 @@ class Shared
 	struct SharedData {
 		pthread_mutex_t position_mutex[10];
 		pthread_mutex_t print_mutex;
+		
+		pthread_mutex_t cond_mutex;
+		pthread_cond_t cond;
+
 		int numUsersWaitedForLock;
 		pthread_mutex_t numUsersWaitedForLock_mutex;
 	};
@@ -93,12 +99,27 @@ class Shared
 		pthread_mutexattr_init(&shared_mutexattr);
 		pthread_mutexattr_setpshared(&shared_mutexattr, PTHREAD_PROCESS_SHARED);
 		pthread_mutex_init(&(data->print_mutex), &shared_mutexattr);
+		pthread_mutex_init(&(data->cond_mutex), &shared_mutexattr);
 		pthread_mutex_init(&(data->numUsersWaitedForLock_mutex), &shared_mutexattr);
+
+		pthread_condattr_t shared_condattr;
+		pthread_condattr_init(&shared_condattr);
+		pthread_condattr_setpshared(&shared_condattr, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(&(data->cond), &shared_condattr);
 	}
 	~Shared()
 	{
 		shmdt(data);
 	}
+
+	// code to ensure only one instance exists
+	static Shared &getInstance()
+	{
+		static Shared instance;
+		return instance;
+	}
+	Shared(Shared const &) = delete;
+	void operator=(Shared const &) = delete;
 
 	// call this in main thread after everything that is shared is done being used
 	void destroy()
@@ -133,10 +154,17 @@ class Shared
 
 	void waitForGroupCond() {
 		// you need a condition variable added to the SharedData struct
+		// only children threads call this
+		pthread_mutex_lock(&(data->cond_mutex));
+		pthread_cond_wait(&(data->cond), &(data->cond_mutex));
+		pthread_mutex_unlock(&(data->cond_mutex));
 	}
 
 	void broadcastGroupCond() {
-
+		// only called by the main thread
+		pthread_mutex_lock(&(data->cond_mutex));
+		pthread_cond_broadcast(&(data->cond));
+		pthread_mutex_unlock(&(data->cond_mutex));
 	}
 };
 
@@ -162,8 +190,15 @@ class UserGroup
 	int groupNumber;
 	queue<Requestdata> requests;
 
+	Requestdata dequeueRequest()
+	{
+		Requestdata r = requests.front;
+		requests.pop();
+		return r;
+	}
+
   public:
-	UserGroup(char n)
+	UserGroup(int n)
 	{
 		groupNumber = n;
 	}
@@ -173,23 +208,36 @@ class UserGroup
 		requests.push(Requestdata(u, p, a, d));
 	}
 
-	Requestdata dequeueRequest()
-	{
-		Requestdata r = requests.front;
-		requests.pop();
-		return r;
-	}
-
 	int getNumberOfRequests()
 	{
 		return requests.size();
+	}
+
+	void *processRequest(int startingGroup, Shared *shared) {
+		if (startingGroup == groupNumber)
+		{
+			// process starting group
+
+			// if this is the last request of the first group
+			// shared->broadcastGroupCond();
+		}
+		else
+		{
+			shared->waitForGroupCond();
+
+			// process ending group
+		}
+		// also remember to print when necessary
 	}
 };
 
 int main(int argc, char *argv[])
 {
+	Shared *shared = &Shared::getInstance();
+
 	// g[0] is group 1, g[1] is group 2
-	UserGroup g[2] { UserGroup('1'), UserGroup('2') };
+	UserGroup g[2] { UserGroup(1), UserGroup(2) };
+
 	int startingGroup;
 	int currentGroup, pos, a, d;
 	int userNumber = 1;
@@ -205,10 +253,17 @@ int main(int argc, char *argv[])
 
 	numRequests[0] = g[0].getNumberOfRequests();
 	numRequests[1] = g[1].getNumberOfRequests();
+	
+	// wait for all child processes to acquire the shared->data->cond
+	sleep(1);
 
 	// process requests
 
+	// wait for child processes to finish
+
 	// print totals
+
+	shared->destroy();
 
 	return 0;
 }
