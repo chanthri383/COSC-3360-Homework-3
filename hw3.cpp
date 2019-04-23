@@ -257,13 +257,24 @@ int main(int argc, char *argv[])
 	// wait for all child processes to acquire the shared->data->cond
 	sleep(1);
 
+	pthread_t *tid = new pthread_t[userNumber - 1];
 	// process requests
+	for (int i = 0; i < userNumber - 1; i++)
+	{
+		if (pthread_create(&tid[i], NULL, (function), (void *)&family[i]))
+		{
+			fprintf(stderr, "Error creating thread\n");
+			return 1;
+		}
+	}
 
 	// wait for child processes to finish
+
 
 	// print totals
 
 	shared->destroy();
+	delete [] tid;
 
 	return 0;
 }
