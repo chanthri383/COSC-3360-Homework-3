@@ -1,226 +1,295 @@
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <semaphore.h>
+#include <pthread.h>
+#include <cstring> // memset
+#include <unistd.h>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <stdexcept>
 #include <queue>
 
-static int numRequest1;
-static int numRequest2;
+static int sizeGroup1 = 0; 
+static int sizeGroup2 = 0;
+
 
 using namespace std;
+
+/*
+specifications:
+get data ready:
+* 10 different positions in the database ==> use a mutex for each
 read in all data at the beginning before doing any work
-		- order elements in each queue by request arrival time
+* input comes from input redirection
+* file format:
+- first line: which user group starts; values: {1, 2}
+- the rest of the lines: these are requests
+* each request contains:
+- user group number; values: {1, 2}
+- database position; values: 1 through 10
+- request arrival time; positive integer values
+- request processing time; positive integer values
+- userNumber is implied and perhaps unnecesary
+* store requests into 2 queues, one for each user group
+- each element of the queue contains: position, arrival, duration, and perhaps userNumber
+- order elements in each queue by request arrival time
 processing requests:
-	* wait for all request threads to be ready by calling waitForGroupCond()
-		- then the main thread can trigger broadcastGroupCond()
-    * process all requests from the group that starts before doing the next group
-		- only requests from the same group have the potential to lock resources from each other
-    * each request is handled by a new thread
+* process all requests from the group that starts before doing the next group
+- only requests from the same group have the potential to lock resources from each other
+* each request is handled by a new thread
+* request processing is simulated with sleep()
+* print messages whenever a request:
+a) arrives at the DBMS
+b) waits for the first group to finish (only printed for each message in the second group)
+c) waits for a database position (if it was locked)
+d) uses a database position
+e) finishes execution
+* preserve order when multiple requests are waiting for a single position
+* print whenever the first group finishes and the second group begins
+print summary after all requests have been processed
+* this is when both queues are empty
+* summary consists of:
+- total number of requests per group
+- number of requests waited due to:
+* the group they belong to
+* a position that was locked by another user
+missing:
+need counters for totals
+need specifics on how processes are sharing memory
+*/
+
+// contains all variables that are shared between processes
+class Shared
+{
+private:
+	int shmid;
 
 	struct SharedData {
 		pthread_mutex_t position_mutex[10];
 		pthread_mutex_t print_mutex;
-
-		pthread_mutex_t cond_mutex;
-		pthread_cond_t cond;
-
 		int numUsersWaitedForLock;
 		pthread_mutex_t numUsersWaitedForLock_mutex;
 	};
+	SharedData *data;
 
+public:
+	Shared()
+	{
+		shmid = shmget(56785, sizeof(SharedData), 0600 | IPC_CREAT);
+		data = (SharedData *)shmat(shmid, 0, 0);
+
+		data->numUsersWaitedForLock = 0;
+
+		// need to make sure the mutexes and condition variables are sharable in between processes
+		pthread_mutexattr_t shared_mutexattr;
 		pthread_mutexattr_init(&shared_mutexattr);
 		pthread_mutexattr_setpshared(&shared_mutexattr, PTHREAD_PROCESS_SHARED);
 		pthread_mutex_init(&(data->print_mutex), &shared_mutexattr);
+		pthread_mutex_t cond_mutex;
 		pthread_mutex_init(&(data->cond_mutex), &shared_mutexattr);
 		pthread_mutex_init(&(data->numUsersWaitedForLock_mutex), &shared_mutexattr);
-
+		
 		pthread_condattr_t shared_condattr;
 		pthread_condattr_init(&shared_condattr);
-		pthread_condattr_setpshared(&shared_condattr, PTHREAD_PROCESS_SHARED);
-		pthread_cond_init(&(data->cond), &shared_condattr);
+		pthread_condattr_setshared(&shared_condattr, PTHREAD_PROCESS_SHARED);
+		pthread_condattr_init(&(data->cond), &shared_condattr);
 	}
 	~Shared()
 	{
 		shmdt(data);
 	}
-
-	// code to ensure only one instance exists
-	static Shared &getInstance()
+	static Shared &getInstance() //makes sure there is one instance of this class
 	{
-		static Shared instance;
+		static Shared Instance;
 		return instance;
 	}
-	Shared(Shared const &) = delete;
-	void operator=(Shared const &) = delete;
+	Shared(Shared const &) = delete //overrides copy operator
+	void operator=(Shared const &) = delete; //overrides equal operator 
 
-	// call this in main thread after everything that is shared is done being used
 	void destroy()
 	{
 		pthread_mutex_destroy(&(data->print_mutex));
 		pthread_mutex_destroy(&(data->numUsersWaitedForLock_mutex));
-		shmctl(shmid, IPC_RMID, NULL);
+		shmctl(shmid, IPC_RMID, NULL);	
 	}
-
-	void print(string s)
+	
+	string print(string s)
 	{
 		pthread_mutex_lock(&(data->print_mutex));
+		pthread_mutex_unlock(&(data->print_mutex));
+		return s;
+	}
 
+	void incrementNumUsersWaitedForLock()
+	{
+		pthread_mutex_lock(&(data->numUsersWaitedForLock_mutex));
+		data->numUsersWaitedForLock++;
+		pthread_mutex_unlock(&(data->numUsersWaitedForLock_mutex));
+	}
+
+	int getNumUsersWaitedForLock()
+	{
+		pthread_mutex_lock(&(data->numUsersWaitedForLock_mutex));
+		int t = data->numUsersWaitedForLock;
 		pthread_mutex_unlock(&(data->numUsersWaitedForLock_mutex));
 		return t;
 	}
 
-	void waitForGroupCond() {
-		// you need a condition variable added to the SharedData struct
-		// only children threads call this
+	void waitForGroupCond(startingGroup, UserGroup group1, UserGroup group2)
+	{
 		pthread_mutex_lock(&(data->cond_mutex));
 		pthread_cond_wait(&(data->cond), &(data->cond_mutex));
-		pthread_mutex_unlock(&(data->cond_mutex));
+		pthread_mutex_lock(&(data->cond_mutex));
 	}
 
-	void broadcastGroupCond() {
-	
+	void broadcastGroupCond()
+	{
 		pthread_mutex_lock(&(data->cond_mutex));
-		pthread_cond_broadcast(&(data->cond),&(data->cond_mutex));
-		pthread_mutex_unlock(&(data->cond_mutex));
+		pthread_cond_wait(&(data->cond), &(data->cond_mutex));
+		pthread_mutex_lock(&(data->cond_mutex));
 	}
 };
 
-
-struct Requestdata
+struct RequestData
 {
+	int startingGroup;
 	int userNumber;
 	int position;
 	int arrival;
 	int duration;
+	int numRequestG1;
+	int numRequestG2;
 
-	RequestInfo(int u, int p, int a, int d)
-	Requestdata(int u, int p, int a, int d)
+	RequestData(int b, int u, int p, int a, int d)
 	{
+		startingGroup = b;
 		userNumber = u;
 		position = p;
+		arrival = a;
+		duration = d;
 	}
+};
+
 class UserGroup
 {
-  private:
+private:
 	int groupNumber;
-	queue<RequestInfo> requests;
-	queue<Requestdata> requests;
-
-	Requestdata dequeueRequest()
+	queue<RequestData> requests;
+		RequestInfo dequeueRequest()
 	{
-		Requestdata r = requests.front;
+		RequestInfo r = requests.front;
 		requests.pop();
 		return r;
 	}
 
-  public:
-	UserGroup(char n)
+public:
 	UserGroup(int n)
 	{
 		groupNumber = n;
 	}
 
-	void addRequest(int u, int p, int a, int d)
+	void addRequest(int b, int u, int p, int a, int d)
 	{
-		requests.push(RequestInfo(u, p, a, d));
-		requests.push(Requestdata(u, p, a, d));
+		requests.push(RequestData(b, u, p, a, d));
 	}
-
-	RequestInfo dequeueRequest()
+	
 	int getNumberOfRequests()
 	{
-		RequestInfo r = requests.front;
-		requests.pop();
-		return r;
 		return requests.size();
 	}
 
-	void *processRequest(void *process) 
+	
+	void *processRequest(void *request_void_ptr)
 	{
-		if (startingGroup == groupNumber)
+		//this function needs to know which group is starting to implement waitGroupCond()
+		//instead of cast to char, must cast to struct 
+		//because we are working with multiple different
+		//we are locking a database position based on the user request
+		RequestData rd;
+		pthread_mutex_lock();
+		//instead of cast to char, must cast to struct 
+		//because we are working with multiple different
+		if(rd.groupNumber != rd.startingGroup)
 		{
-			// process starting group
-			// if this is the last request of the first group
-			// shared->broadcastGroupCond();
-			pthread_mutex_lock(); //critical section
-			
-			if(groupNumber == 1)
-			{
-				if(numRequest1 == 0)
-				{
-					broadcastGroupCond();
-				}
-			}
-			else if(groupNumber == 2)
-			{
-				if(numRequest2 == 0)
-				{
-					broadcastGroupCond();
-				}
-			}
+			shared->waitForGroupCond();	
 		}
-		else
-		{
-			shared->waitForGroupCond();
-
-			// process ending group
-		}
-		// also remember to print when necessary
+		//if data is empty
+		pthread_mutex_lock(&(data->print_mutex); //not sure if parameters are right
+		cout << "User: " << rd.userNumber << "is entering the database\n";
+		pthread_mutex_unlock(&(data->print_mutex);
+		
+		return NULL;
 	}
 };
-
+//can only pass one parameter for processRequest so must cast to struct
+//need to encapsulate the data so we can allow processRequest() to have
+//one parameter in which we cast it into a struct
 int main(int argc, char *argv[])
 {
-	UserGroup g1('1'), g2('2');
-	UserGroup *sg, *eg;
-	Shared *shared = &Shared::getInstance();
-
-	// g[0] is group 1, g[1] is group 2
-	UserGroup g[2] { UserGroup(1), UserGroup(2) };
-
+	UserGroup g[2]{ UserGroup(1), UserGroup(2) };
 	int startingGroup;
-	int currentGroup, pos, a, d;
-	int userNumber = 1;
-	int numRequests[2] = {0, 0};
-
+	Shared *shared = &Shared::getInstance();
+	pthread_mutex_init(&bsem, NULL); //initialize access to 1
+	
+	int currentGroup = 0;
+	int resourceUsing = 0;
+	int time = 0;
+	int timeUsingResource = 0;
+	int userNumber = 0;
+	int numRequest[2] = { 0, 0 };
 	cin >> startingGroup;
-	if (startingGroup == 1)
-
-	while (cin >> currentGroup >> pos >> a >> d)
+	
+	while (cin >> currentGroup >> resourceUse >> time >> timeUsingResource)
 	{
-		g[currentGroup - 1].addRequest(userNumber, pos, a, d);
+		g[currentGroup - 1].addRequest(startingGroup, currentGroup, resourceUse, time, timeUsingResource);
 		userNumber++;
 	}
-	else
-
-	numRequests[0] = g[0].getNumberOfRequests();
-	numRequests[1] = g[1].getNumberOfRequests();
-
-	// wait for all child processes to acquire the shared->data->cond
-	sleep(1);
-
-	pthread_t *tid = new pthread_t[userNumber - 1];
+	numRequest[0] = g[0].getNumberOfRequests();
+	numRequest[1] = g[1].getNumberOfRequests();
 	
-	for (int i = 0; i < userNumber - 1; i++)
+	//wait for all child processes to acquire the shared->data->cond
+	sleep(1);
+	pthread_t *tid = new pthread_t[userNumer - 1]; // is it okay to do dynamically 
+	
+	for(int i = 0; i < userNumber - 1; i++)
 	{
-		sg = &g2;
-		eg = &g1;
-		if (pthread_create(&tid[i], NULL, (function), (void *)&family[i]))
+		
+		if(pthread_create(&tid[i], NULL, processRequest,(void *)&family[i])) 
 		{
-			fprintf(stderr, "Error creating thread\n");
+			throw runtime_error("Error creating thread\n");
 			return 1;
 		}
+		//we need to sleep based on which group and how many seconds
+		sleep(1);
+	}
+	
+	//wait for other threads to finish 
+	for(int i = 0; i < userNumber - 1; i++)
+	{
+		pthread_join(tid[i], NULL]);	
+	}	
+	
+	cout << "Total Requests: " << endl;
+	cout << "Group 1: " << numRequest[0] << endl;
+	cout << "Group 2: " << numRequest[1] << endl;
+	cout << endl;
+
+	cout << "Requests that waited: " << endl;
+	if (startingGroup == 1)
+	{
+		cout << "Due to its group: " << numRequest[1].getNumberOfRequests << endl;
+	}
+	else
+	{
+		cout << "Due to its group: " << numRequest[0].getNumberOfRequests << endl;
 	}
 
-	// add requests
-	// wait for child processes to finish
-
-	// process requests
-
-	// print totals
-
 	shared->destroy();
-	delete [] tid;
-
+	delete[] tid;
 	return 0;
 }
