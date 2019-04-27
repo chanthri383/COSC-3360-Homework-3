@@ -14,9 +14,6 @@
 #include <stdexcept>
 #include <queue>
 
-static int sizeGroup1 = 0; 
-static int sizeGroup2 = 0;
-
 
 using namespace std;
 
@@ -162,110 +159,122 @@ struct RequestData
 	int position;
 	int arrival;
 	int duration;
-	int numRequestG1;
-	int numRequestG2;
-
-	RequestData(int b, int u, int p, int a, int d)
-	{
-		startingGroup = b;
-		userNumber = u;
-		position = p;
-		arrival = a;
-		duration = d;
-	}
+	int totalRequest1;
+	int totalRequest2;
+	
 };
-
-class UserGroup
+	
+void *processRequest(void *request_void_ptr)
 {
-private:
-	int groupNumber;
-	queue<RequestData> requests;
-		RequestInfo dequeueRequest()
-	{
-		RequestInfo r = requests.front;
-		requests.pop();
-		return r;
-	}
-
-public:
-	UserGroup(int n)
-	{
-		groupNumber = n;
-	}
-
-	void addRequest(int b, int u, int p, int a, int d)
-	{
-		requests.push(RequestData(b, u, p, a, d));
-	}
-	
-	int getNumberOfRequests()
-	{
-		return requests.size();
-	}
-
-	
-	void *processRequest(void *request_void_ptr)
-	{
 		//this function needs to know which group is starting to implement waitGroupCond()
 		//instead of cast to char, must cast to struct 
 		//because we are working with multiple different
 		//we are locking a database position based on the user request
-		RequestData rd;
-		pthread_mutex_lock();
-		//instead of cast to char, must cast to struct 
-		//because we are working with multiple different
-		if(rd.groupNumber != rd.startingGroup)
-		{
-			shared->waitForGroupCond();	
-		}
-		//if data is empty
-		pthread_mutex_lock(&(data->print_mutex); //not sure if parameters are right
-		cout << "User: " << rd.userNumber << "is entering the database\n";
-		pthread_mutex_unlock(&(data->print_mutex);
+	RequestData *rd;
+	struct( rd*)request_void_ptr;
+	if(rd->position == 1)
+	{
 		
-		return NULL;
 	}
-};
+	pthread_mutex_lock();
+	if(rd.groupNumber != rd.startingGroup)
+	{
+		shared->waitForGroupCond();	
+	}
+		//if data is empty
+	pthread_mutex_lock(&(data->print_mutex); //not sure if parameters are right
+	cout << "User: " << rd.userNumber << "is entering the database\n";
+	pthread_mutex_unlock(&(data->print_mutex);
+		
+	sleep(rq->duration);
+	
+	return NULL;
+}
+
 //can only pass one parameter for processRequest so must cast to struct
 //need to encapsulate the data so we can allow processRequest() to have
 //one parameter in which we cast it into a struct
 int main(int argc, char *argv[])
 {
-	UserGroup g[2]{ UserGroup(1), UserGroup(2) };
 	int startingGroup;
 	Shared *shared = &Shared::getInstance();
-	pthread_mutex_init(&bsem, NULL); //initialize access to 1
-	
 	int currentGroup = 0;
+	RequestData* rq;
+	RequestData totalR;
+	queue<int> groupCurrently;
+	queue<int> resourceUsing; 
+	queue<int> timeSpawn;
+	queue<int> timeUseResource;
 	int resourceUsing = 0;
 	int time = 0;
 	int timeUsingResource = 0;
 	int userNumber = 0;
-	int numRequest[2] = { 0, 0 };
+	int numRequest1 = 0;
+	int numRequest2 = 0;
+	
 	cin >> startingGroup;
 	
-	while (cin >> currentGroup >> resourceUse >> time >> timeUsingResource)
+	while (cin >> currentGroup >> resourceUsing >> time >> timeUsingResource)
 	{
-		g[currentGroup - 1].addRequest(startingGroup, currentGroup, resourceUse, time, timeUsingResource);
+		groupCurrently.push(currentGroup);
+		resourceUse.push(resourceUsing);
+		timeSpawn.push(time);
+		timeUseResource.push(timeUsingResource);
 		userNumber++;
+		if(currentGroup == 1)
+		{
+			numRequest1++;
+			totalR.totalRequest1++;
+		}
+		else
+		{
+			numRequest2++;
+			totalR.totalRequest2++;
+		}
 	}
-	numRequest[0] = g[0].getNumberOfRequests();
-	numRequest[1] = g[1].getNumberOfRequests();
 	
-	//wait for all child processes to acquire the shared->data->cond
-	sleep(1);
-	pthread_t *tid = new pthread_t[userNumer - 1]; // is it okay to do dynamically 
+	rq = new RequestData[userNumber];
+
+	for(int i = 0; i < userNumber; i++)
+	{
+		rq[i].userNumber = groupCurrently.front();
+		rq[i].position = resourceUse.front();
+		rq[i].arrival = timeSpawn.front();
+		rq[i].duration = timeUseResource.front();
+		if(!groupCurrently.isEmpty())
+		{
+			groupCurrently.pop();
+		}
+		
+		if(!resourceUse.isEmpty())
+		{
+			resourceUse.pop();
+		}
+		
+		if(!timeSpawn.isEmpty())
+		{
+			timeSpawn.pop();
+		}
+		
+		if(!timeUseResource.isEmpty())
+		{
+			timeUseResource.pop();
+		}
+	}
+	sleep(1); //sleep just to ensure data was stored successfully
+	pthread_t *tid = new pthread_t[userNumer]; // is it okay to do dynamically 
 	
-	for(int i = 0; i < userNumber - 1; i++)
+	for(int i = 0; i < userNumber; i++)
 	{
 		
-		if(pthread_create(&tid[i], NULL, processRequest,(void *)&family[i])) 
+		if(pthread_create(&tid[i], NULL, processRequest,(void *)&rq[i]) 
 		{
 			throw runtime_error("Error creating thread\n");
 			return 1;
 		}
-		//we need to sleep based on which group and how many seconds
-		sleep(1);
+		
+		sleep(rq[i].arrival);
+		//this ensures we access the struct and sleep based on each index of array struct and easy access
 	}
 	
 	//wait for other threads to finish 
@@ -275,18 +284,18 @@ int main(int argc, char *argv[])
 	}	
 	
 	cout << "Total Requests: " << endl;
-	cout << "Group 1: " << numRequest[0] << endl;
-	cout << "Group 2: " << numRequest[1] << endl;
+	cout << "Group 1: " << 	numRequest1 << endl;
+	cout << "Group 2: " << 	numRequest2 << endl;
 	cout << endl;
 
 	cout << "Requests that waited: " << endl;
 	if (startingGroup == 1)
 	{
-		cout << "Due to its group: " << numRequest[1].getNumberOfRequests << endl;
+		cout << "Due to its group: " << numRequest2 << endl;
 	}
 	else
 	{
-		cout << "Due to its group: " << numRequest[0].getNumberOfRequests << endl;
+		cout << "Due to its group: " << numRequest1 << endl;
 	}
 
 	shared->destroy();
