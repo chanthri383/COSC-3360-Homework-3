@@ -1,4 +1,4 @@
-g++ Chanthri_So_threads.cpp hw3 -Ipthread
+//g++ Chanthri_So_threads.cpp hw3 -Ipthread
 #include <iostream>
 #include <string>
 #include <sstream>
