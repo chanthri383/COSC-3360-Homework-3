@@ -15,7 +15,38 @@ g++ Chanthri_So_threads.cpp hw3 -Ipthread
 #include <stdexcept>
 #include <queue>
 
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock1 = PTHREAD_MUTEX_INITIALIZER; 
 
+pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock2 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond3 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock3 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond4 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock4 = PTHREAD_MUTEX_INITIALIZER; 
+  
+pthread_cond_t cond5 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock5 = PTHREAD_MUTEX_INITIALIZER; 
+  
+pthread_cond_t cond6 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock6 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond7 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock7 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond8 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock8 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond9 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock9 = PTHREAD_MUTEX_INITIALIZER; 
+
+pthread_cond_t cond10 = PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock10 = PTHREAD_MUTEX_INITIALIZER; 
+  
+  
+int binaryValue = 1; 
 using namespace std;
 
 
