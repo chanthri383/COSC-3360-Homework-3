@@ -44,6 +44,10 @@ pthread_mutex_t lock9 = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t cond10 = PTHREAD_COND_INITIALIZER; 
 pthread_mutex_t lock10 = PTHREAD_MUTEX_INITIALIZER; 
+
+int numUsersWaitedForLock;
+pthread_mutex_t numUsersWaitedForLock_mutex;
+pthread_mutex_t print_mutex;
   
   
 int binaryValue = 1; 
@@ -145,10 +149,8 @@ void *processRequest(void *request_void_ptr)
 int main(int argc, char *argv[])
 {
 	int startingGroup;
-	Shared *shared = &Shared::getInstance();
 	int currentGroup = 0;
 	RequestData rq[1000];
-	RequestData totalR;
 	queue<int> groupCurrently;
 	queue<int> resourceUsing; 
 	queue<int> timeSpawn;
@@ -173,12 +175,10 @@ int main(int argc, char *argv[])
 		if(currentGroup == 1)
 		{
 			numRequest1++;
-			totalR.totalRequest1++;
 		}
 		else
 		{
 			numRequest2++;
-			totalR.totalRequest2++;
 		}
 	}
 	
@@ -247,6 +247,8 @@ int main(int argc, char *argv[])
 	{
 		cout << "Due to its group: " << numRequest1 << endl;
 	}
+	
+	cout << "Due to a locked position: " << numUsersWaitedForLock << endl;
 
 	delete[] tid;
 	return 0;
