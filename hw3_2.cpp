@@ -1,3 +1,4 @@
+g++ Chanthri_So_threads.cpp hw3 -Ipthread
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -82,7 +83,6 @@ public:
 
 		data->numUsersWaitedForLock = 0;
 
-		// need to make sure the mutexes and condition variables are sharable in between processes
 		pthread_mutexattr_t shared_mutexattr;
 		pthread_mutexattr_init(&shared_mutexattr);
 		pthread_mutexattr_setpshared(&shared_mutexattr, PTHREAD_PROCESS_SHARED);
@@ -154,14 +154,14 @@ public:
 
 struct RequestData
 {
-	int startingGroup;
+	int startGroup;
 	int userNumber;
 	int position;
 	int arrival;
 	int duration;
 	int totalRequest1;
-	int totalRequest2;
-	
+	int totalRequest2;	
+	Shared *data;
 };
 	
 void *processRequest(void *request_void_ptr)
@@ -172,22 +172,72 @@ void *processRequest(void *request_void_ptr)
 		//we are locking a database position based on the user request
 	RequestData *rd;
 	struct( rd*)request_void_ptr;
-	if(rd->position == 1)
-	{
-		
-	}
-	pthread_mutex_lock();
-	if(rd.groupNumber != rd.startingGroup)
-	{
-		shared->waitForGroupCond();	
-	}
-		//if data is empty
-	pthread_mutex_lock(&(data->print_mutex); //not sure if parameters are right
-	cout << "User: " << rd.userNumber << "is entering the database\n";
+	pthread_mutex_lock(&(data->print_mutex); 
+	cout << "User " << rd->userNumber << "is entering the database\n";
 	pthread_mutex_unlock(&(data->print_mutex);
-		
-	sleep(rq->duration);
 	
+	if(rd->userNumber != rd->startingGroup)
+	{
+		pthread_mutex_lock(&(data->print_mutex); 
+		cout << "User " << rd->userNumber << "is waiting due to its group\n";
+		pthread_mutex_unlock(&(data->print_mutex);
+		shared->waitForGroupCond();
+	}
+	
+	switch(rd->position)
+	{
+		/*
+		case 1:
+			pthread_mutex_lock(&(data->position_mutex[0]));
+			
+			pthread_mutexLock
+			break;
+			
+		case 2:
+			pthread_mutex_lock(&(data->position_mutex[1]));
+			break;
+			
+		case 3:
+			pthread_mutex_lock(&(data->position_mutex[2]));
+			break;
+			
+		case 4:
+			pthread_mutex_lock(&(data->position_mutex[3]));
+			break;
+			
+		case 5:
+			pthread_mutex_lock(&(data->position_mutex[4]));
+			break;
+			
+		case 6:
+			pthread_mutex_lock(&(data->position_mutex[5]));
+			break;
+			
+		case 7:
+			pthread_mutex_lock(&(data->position_mutex[6]));
+			break;
+			
+		case 8:
+			pthread_mutex_lock(&(data->position_mutex[7]));
+			break;
+			
+		case 9:
+			pthread_mutex_lock(&(data->position_mutex[8]));
+			break;
+		case 10:
+			pthread_mutex_lock(&(data->position_mutex[9]));
+			break;
+	}
+	*/
+	pthread_mutex_lock(&(data->print_mutex); 
+	cout << "User " << rd->userNumber << "finished its execution\n";
+	pthread_mutex_unlock(&(data->print_mutex);
+	if((rd->totalRequest1) == 0)
+	{
+		
+	}
+		
+	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -199,7 +249,7 @@ int main(int argc, char *argv[])
 	int startingGroup;
 	Shared *shared = &Shared::getInstance();
 	int currentGroup = 0;
-	RequestData* rq;
+	RequestData rq[1000];
 	RequestData totalR;
 	queue<int> groupCurrently;
 	queue<int> resourceUsing; 
@@ -216,6 +266,7 @@ int main(int argc, char *argv[])
 	
 	while (cin >> currentGroup >> resourceUsing >> time >> timeUsingResource)
 	{
+		pthread_mutex_init(&bsem, NULL);
 		groupCurrently.push(currentGroup);
 		resourceUse.push(resourceUsing);
 		timeSpawn.push(time);
@@ -233,10 +284,11 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	rq = new RequestData[userNumber];
+
 
 	for(int i = 0; i < userNumber; i++)
 	{
+		rq[i].startGroup = startingGroup;
 		rq[i].userNumber = groupCurrently.front();
 		rq[i].position = resourceUse.front();
 		rq[i].arrival = timeSpawn.front();
