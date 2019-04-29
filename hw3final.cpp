@@ -45,9 +45,9 @@ struct RequestData
 	
 void *processRequest(void *request_void_ptr)
 {
+	Request *rd = (RequestData *)request_void_ptr;
 	pthread_mutex_lock(&bsem);
 	int firstUser = 0;
-	RequestData *rd;
 	if((rd->startingGroup) == 1)
 	{
 		rd->secondGroup = 2;
