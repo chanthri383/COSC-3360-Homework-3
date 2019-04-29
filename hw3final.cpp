@@ -22,7 +22,6 @@ PTHREAD_COND_INITIALIZER,PTHREAD_COND_INITIALIZER};
 static int positionBeingUsed;
 static pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_lock bsem;
-static pthread_mutex_t position_mutex[10];
 static int numUsersWaitedForLock;
 static pthread_mutex_t numUsersWaitedForLock_mutex;
 static pthread_mutex_t decrementRequest;
@@ -220,7 +219,7 @@ int main()
 	pthread_t *tid = new pthread_t[userNumer];
 	for(int i = 0; i < userNumber; i++)
 	{
-		
+		sleep(rq[i].arrival);
 		if(pthread_create(&tid[i], NULL, processRequest,(void *)&rq[i]) 
 		{
 			throw runtime_error("Error creating thread\n");
